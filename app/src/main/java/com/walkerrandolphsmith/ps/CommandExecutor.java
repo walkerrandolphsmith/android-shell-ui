@@ -3,16 +3,16 @@ package com.walkerrandolphsmith.ps;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.os.AsyncTask;
-import android.util.Log;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-/**
- * Created by walkersmith on 7/19/15.
- */
-public class CommandExecutor extends AsyncTask<String, String, String> {
+public class CommandExecutor extends AsyncTask<String, String, JSONArray> {
 
     Context mContext = null;
     ProgressDialog progressDialog;
@@ -28,32 +28,51 @@ public class CommandExecutor extends AsyncTask<String, String, String> {
     }
 
     @Override
-    protected String doInBackground(String... params) {
+    protected JSONArray doInBackground(String... params) {
         Process p;
-        StringBuffer output = new StringBuffer();
+        JSONArray processes = new JSONArray();
 
         try {
             p = Runtime.getRuntime().exec(params[0]);
             BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            StringBuilder sb = new StringBuilder();
             String line = "";
+            int i = 0;
             while((line = reader.readLine()) != null){
-                output.append(line + "\n");
+                if(i > 0){
+                    JSONObject process = new JSONObject();
+                    String[] values = line.split("\\s+");
+
+                    process.put("processId", values[1]);
+                    process.put("processName",values[8]);
+                    process.put("position", i);
+                    processes.put(i, process);
+                }
+                i++;
                 p.waitFor();
             }
         }catch(IOException e){
 
         }catch(InterruptedException e){
 
+        }catch(JSONException e){
+
         }
-        return output.toString();
+        return processes;
     }
 
     @Override
-    protected void onPostExecute(String result){
-        super.onPostExecute(result);
+    protected void onPostExecute(JSONArray processes){
+        super.onPostExecute(processes);
         progressDialog.dismiss();
-        Log.d("Command result: ", result);
-        ((MainActivity)mContext).txtResult.setText(result);
+
+        for(int i = 0; i < processes.length(); i++){
+            try {
+                JSONObject process = processes.getJSONObject(i);
+                ((MainActivity)mContext).adapter.mList.put(i, process);
+                ((MainActivity)mContext).adapter.notifyDataSetChanged();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }
